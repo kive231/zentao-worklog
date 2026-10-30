@@ -4,7 +4,7 @@
 
 ## 直接使用 Windows 启动包
 
-在 GitHub Releases 下载 `ZenTaoWorklog-v0.1.0-Windows-x64.zip`，完整解压后双击 `Worklog.exe`。自带运行环境，不需要安装 Python 或 Node.js。启动后在网页中配置自己的禅道连接。详见 [Windows 使用说明](WINDOWS使用说明.md)。
+在 GitHub Releases 下载 `ZenTaoWorklog-v0.1.1-Windows-x64.zip`，完整解压后双击 `Worklog.exe`。自带运行环境，不需要安装 Python 或 Node.js。启动后在网页中配置自己的禅道连接。详见 [Windows 使用说明](WINDOWS使用说明.md)。
 
 此仓库仅含通用示例，不包含用户的连接配置、密码或真实业务数据。
 

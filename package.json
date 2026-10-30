@@ -1,5 +1,5 @@
 {
-  "name": "zentao-worklog", "version": "0.1.0", "private": true, "type": "module",
+  "name": "zentao-worklog", "version": "0.1.1", "private": true, "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1", "build": "tsc -b && vite build",
     "start": ".venv\\Scripts\\python.exe -m backend", "test:e2e": "playwright test"

@@ -59,7 +59,7 @@ async def lifespan(app):
         await dispose(s)
 
 
-app = FastAPI(title='工时簿 API', version='0.1.0', lifespan=lifespan)
+app = FastAPI(title='工时簿 API', version='0.1.1', lifespan=lifespan)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost'])
 
 
@@ -147,7 +147,7 @@ async def read_efforts(s, task_id):
 
 @app.get('/api/health')
 async def health():
-    return {'status': 'ok', 'application': 'zentao-worklog', 'version': '0.1.0'}
+    return {'status': 'ok', 'application': 'zentao-worklog', 'version': '0.1.1'}
 
 
 @app.get('/api/profiles')
@@ -501,13 +501,29 @@ async def reconcile(rid: str, request: Request):
         return item['result']
 
 
+class FrontendStaticFiles(StaticFiles):
+    # Windows registry associations can mislabel scripts as text/plain.
+    # Keep Starlette's path checks, conditional responses and range handling.
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        media_type = {
+            '.js': 'application/javascript',
+            '.mjs': 'application/javascript',
+            '.css': 'text/css; charset=utf-8',
+            '.wasm': 'application/wasm',
+        }.get(Path(path).suffix.lower())
+        if isinstance(response, FileResponse) and media_type:
+            response.headers['content-type'] = media_type
+        return response
+
+
 DIST = Path(__file__).resolve().parent.parent / 'dist'
 if DIST.is_dir():
-    app.mount('/assets', StaticFiles(directory=DIST / 'assets'), name='assets')
+    app.mount('/assets', FrontendStaticFiles(directory=DIST / 'assets'), name='assets')
 
 
 @app.get('/')
 async def index():
     if (DIST / 'index.html').is_file():
-        return FileResponse(DIST / 'index.html')
+        return FileResponse(DIST / 'index.html', media_type='text/html')
     return JSONResponse({'message': '前端尚未构建，请运行 npm run build；开发模式运行 npm run dev'})
