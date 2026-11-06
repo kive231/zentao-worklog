@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import queue
 import socket
 import sys
 import threading
@@ -12,6 +13,8 @@ import webbrowser
 import uvicorn
 
 from backend.app import app
+from backend.version import VERSION
+from updates import check_update
 
 
 def emit(value):
@@ -77,8 +80,8 @@ def main():
     import tkinter as tk
     from tkinter import messagebox
     root = tk.Tk()
-    root.title('工时簿')
-    root.geometry('440x238')
+    root.title(f'工时簿 v{VERSION}')
+    root.geometry('440x298')
     root.resizable(False, False)
     root.configure(bg='#f5f6f3')
     tk.Label(root, text='工时簿', bg='#f5f6f3', fg='#000000', font=('Microsoft YaHei', 22, 'bold')).pack(pady=(22, 6))
@@ -104,6 +107,38 @@ def main():
         wait_close()
     tk.Button(buttons, text='停止并退出', command=close, bg='#ffffff', fg='#000000', relief='flat', font=('Microsoft YaHei', 10), padx=16, pady=7).pack(side='left', padx=6)
     tk.Label(root, text='首次使用请配置自己的禅道地址和账号。', bg='#f5f6f3', fg='#527661', font=('Microsoft YaHei', 9)).pack()
+    update_results = queue.Queue()
+    update_status = tk.StringVar(value=f'当前版本 v{VERSION} · 正在检查更新…')
+    tk.Label(root, textvariable=update_status, bg='#f5f6f3', fg='#527661', font=('Microsoft YaHei', 9)).pack(pady=(10, 2))
+    update_button = tk.Button(root, text='检查更新', bg='#ffffff', fg='#000000', relief='flat', state='disabled')
+    update_button.pack()
+    def start_update_check():
+        update_button.configure(state='disabled')
+        update_status.set(f'当前版本 v{VERSION} · 正在检查更新…')
+        def check():
+            try:
+                update_results.put(('ok', check_update()))
+            except Exception:
+                update_results.put(('error', None))
+        threading.Thread(target=check, daemon=True).start()
+    def poll_update():
+        try:
+            outcome, update = update_results.get_nowait()
+        except queue.Empty:
+            root.after(200, poll_update)
+            return
+        if outcome == 'error':
+            update_status.set('检查更新失败，不影响使用；可点击重试')
+            update_button.configure(text='重新检查', command=start_update_check, state='normal')
+        elif update:
+            update_status.set(f'发现新版 v{update.version} · 下载后停止旧版再解压运行')
+            update_button.configure(text=f'下载 v{update.version} 更新包', command=lambda: webbrowser.open(update.download_url), state='normal')
+        else:
+            update_status.set(f'当前版本 v{VERSION} · 已是最新版本')
+            update_button.configure(text='检查更新', command=start_update_check, state='normal')
+        root.after(200, poll_update)
+    start_update_check()
+    root.after(200, poll_update)
     root.protocol('WM_DELETE_WINDOW', close)
     thread = threading.Thread(target=server.run, kwargs={'sockets': [sock]}, daemon=True)
     thread.start()

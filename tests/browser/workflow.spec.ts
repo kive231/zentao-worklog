@@ -106,6 +106,7 @@ test('项目数量独立于未读取工时，正文黑色且提示使用主题�
 });
 
 test('挂起项目的历史工时进入日历统计并可查看修改', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-29T12:00:00+08:00'));
   await setup(page);
   await page.route('**/api/worklogs?**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
     rows: [{ id: 88, task_id: 4, project_id: 8, execution_id: 7, date: '2026-10-08', work: '历史问题排查', consumed: 1.5, left: 0, signature: 'baseline', project_name: '挂起项目', execution_name: '历史执行', task_name: '历史任务' }],

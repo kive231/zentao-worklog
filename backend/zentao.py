@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import html
 import json
@@ -48,16 +49,38 @@ class ZenTao:
     def __init__(self, profile, transport=None):
         self.profile = profile
         self.account = profile['account']
+        self.read_slots = asyncio.Semaphore(2)
         self.client = httpx.AsyncClient(base_url=profile['base_url'].rstrip('/') + '/', timeout=30, follow_redirects=False, transport=transport)
 
     async def close(self):
         await self.client.aclose()
 
     async def request(self, method, path, **kwargs):
-        try:
-            response = await self.client.request(method, path, **kwargs)
-        except httpx.HTTPError:
-            raise RemoteError('禅道连接失败，请检查地址和网络' if method == 'GET' else '连接中断，写入结果待确认，请先核验', uncertain=method != 'GET')
+        read = method.upper() == 'GET'
+        attempts = 3 if read else 1
+        for attempt in range(attempts):
+            try:
+                async with self.read_slots:
+                    response = await self.client.request(method, path, **kwargs)
+            except httpx.TransportError as exc:
+                if read and attempt + 1 < attempts:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    continue
+                if not read:
+                    raise RemoteError('连接中断，写入结果待确认，请先核验', uncertain=True) from exc
+                if isinstance(exc, httpx.TimeoutException):
+                    reason = '禅道响应超时'
+                elif isinstance(exc, httpx.RemoteProtocolError):
+                    reason = '禅道服务端中断响应'
+                else:
+                    reason = '无法连接禅道，请检查地址和网络'
+                raise RemoteError(f'{reason}（已重试 2 次），请稍后重试') from exc
+            if read and response.status_code in (502, 503, 504):
+                if attempt + 1 < attempts:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    continue
+                raise RemoteError(f'禅道服务暂不可用（HTTP {response.status_code}，已重试 2 次），请稍后重试')
+            break
         if response.status_code in (401, 403):
             raise RemoteError('登录已失效或没有操作权限，请重新登录', status=401)
         if len(response.content) > 20_000_000:
@@ -84,7 +107,7 @@ class ZenTao:
     async def paged(self, kind, path=None, **params):
         result, seen = [], set()
         for page in range(1, 1001):
-            data = await self.request('GET', path or f'api.php/v1/{kind}', params={**params, 'page': page, 'limit': 500})
+            data = await self.request('GET', path or f'api.php/v1/{kind}', params={**params, 'page': page, 'limit': 100})
             chunk = rows_of(data.get(kind, []))
             if not chunk:
                 if len(result) < int(data.get('total', len(result))):

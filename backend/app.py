@@ -18,6 +18,7 @@ from .cache import covered, directory_for_month, might_have_efforts, month_range
 from .imports import daily_totals, match_rows, parse_log, validate_row
 from .models import CommitRequest, EditRequest, Login, ParseRequest, Profile, ReviewRequest, Worklog
 from .zentao import RemoteError, ZenTao, duplicate_key
+from .version import VERSION
 
 
 @dataclass
@@ -59,7 +60,7 @@ async def lifespan(app):
         await dispose(s)
 
 
-app = FastAPI(title='工时簿 API', version='0.1.1', lifespan=lifespan)
+app = FastAPI(title='工时簿 API', version=VERSION, lifespan=lifespan)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost'])
 
 
@@ -147,7 +148,7 @@ async def read_efforts(s, task_id):
 
 @app.get('/api/health')
 async def health():
-    return {'status': 'ok', 'application': 'zentao-worklog', 'version': '0.1.1'}
+    return {'status': 'ok', 'application': 'zentao-worklog', 'version': VERSION}
 
 
 @app.get('/api/profiles')
